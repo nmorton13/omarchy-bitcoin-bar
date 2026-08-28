@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "nmorton.bitcoin",
+  "name": "Bitcoin",
+  "version": "1.0.0",
+  "author": "Nick Morton",
+  "description": "Bitcoin network, fee, difficulty, and market data with rich detail panes",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Bitcoin",
+    "description": "Bitcoin block height, price, fees, and network details",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
