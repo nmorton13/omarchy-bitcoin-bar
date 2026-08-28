@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-28
+
+- Fixed the popup position so the Bitcoin panel anchors to its bar icon.
+
 ## [1.0.0] - 2026-08-28
 
 - Initial Omarchy bar-widget release.

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "nmorton.bitcoin",
   "name": "Bitcoin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Nick Morton",
   "description": "Bitcoin network, fee, difficulty, and market data with rich detail panes",
   "kinds": [
