@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-01
+
+- Corrected the author name to Nathan Morton.
+
 ### Security
 
 - Bounded every remote API response at the producer: all six collectors now fetch through `scripts/fetch-json.sh`, which caps bytes while receiving and rejects overflow before parsing or output, so an oversized or endless response cannot consume disk or parser memory.
