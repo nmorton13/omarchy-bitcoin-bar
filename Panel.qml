@@ -126,6 +126,12 @@ Panel {
     return decodeURIComponent(url.replace(/^file:\/\//, ""))
   }
 
+  // Every remote body is pulled through fetch-json.sh so the byte cap is
+  // enforced while receiving, before anything reaches jq or this process.
+  function fetchJson(url, maxBytes, maxTime) {
+    return ["bash", localPath("scripts/fetch-json.sh"), url, String(maxBytes), String(maxTime)]
+  }
+
   function startEndpoint(process) {
     process.reported = false
     process.validResponse = false
@@ -203,7 +209,7 @@ Panel {
     id: blockProc
     property bool reported: false
     property bool validResponse: false
-    command: ["curl", "-fsS", "--connect-timeout", "5", "--max-time", "15", "--retry", "1", "--retry-delay", "1", "https://mempool.space/api/v1/blocks?limit=1"]
+    command: root.fetchJson("https://mempool.space/api/v1/blocks?limit=1", 262144, 15)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.parsed(blockProc, Model.parseBlock(text), function(value) { root.blockData = value })
@@ -215,7 +221,7 @@ Panel {
     id: mempoolProc
     property bool reported: false
     property bool validResponse: false
-    command: ["curl", "-fsS", "--connect-timeout", "5", "--max-time", "15", "--retry", "1", "--retry-delay", "1", "https://mempool.space/api/mempool"]
+    command: root.fetchJson("https://mempool.space/api/mempool", 65536, 15)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.parsed(mempoolProc, Model.parseMempool(text), function(value) { root.mempoolData = value })
@@ -239,7 +245,7 @@ Panel {
     id: difficultyProc
     property bool reported: false
     property bool validResponse: false
-    command: ["curl", "-fsS", "--connect-timeout", "5", "--max-time", "15", "--retry", "1", "--retry-delay", "1", "https://mempool.space/api/v1/difficulty-adjustment"]
+    command: root.fetchJson("https://mempool.space/api/v1/difficulty-adjustment", 65536, 15)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.parsed(difficultyProc, Model.parseDifficulty(text), function(value) { root.difficultyData = value })
@@ -251,7 +257,7 @@ Panel {
     id: coinGeckoProc
     property bool reported: false
     property bool validResponse: false
-    command: ["curl", "-fsS", "--connect-timeout", "5", "--max-time", "18", "--retry", "1", "--retry-delay", "2", "https://api.coingecko.com/api/v3/coins/bitcoin?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=true"]
+    command: root.fetchJson("https://api.coingecko.com/api/v3/coins/bitcoin?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=true", 262144, 18)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.parsed(coinGeckoProc, Model.parseCoinGecko(text), function(value) {
@@ -266,7 +272,7 @@ Panel {
     id: mempoolPriceProc
     property bool reported: false
     property bool validResponse: false
-    command: ["curl", "-fsS", "--connect-timeout", "5", "--max-time", "15", "--retry", "1", "--retry-delay", "1", "https://mempool.space/api/v1/prices"]
+    command: root.fetchJson("https://mempool.space/api/v1/prices", 65536, 15)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.parsed(mempoolPriceProc, Model.parseMempoolPrice(text), function(value) {

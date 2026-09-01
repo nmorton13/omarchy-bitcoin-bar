@@ -2,6 +2,44 @@
 
 var FIAT_CURRENCIES = ["usd", "eur", "gbp", "jpy", "cad", "aud", "chf", "cny", "hkd", "sgd"]
 
+// Second line of defence behind the byte cap in scripts/fetch-json.sh: the
+// collectors hand raw text straight to these parsers, so nothing unbounded is
+// parsed, retained, or measured here either.
+var MAX_RESPONSE_CHARS = 262144
+var MAX_STRING_CHARS = 128
+var MAX_SPARKLINE_ITEMS = 512
+var MAX_FEE_RANGE_ITEMS = 64
+
+function boundedString(value, limit) {
+  var text = String(value === null || value === undefined ? "" : value)
+  var cap = limit || MAX_STRING_CHARS
+  return text.length > cap ? text.slice(0, cap) : text
+}
+
+function boundedNumbers(values, limit) {
+  // Array-like rather than instanceof so a bounded result stays usable as the
+  // input to another bounded call.
+  if (!values || typeof values === "string" || finiteNumber(values.length) === null) return []
+  var cap = Math.min(values.length, limit || MAX_SPARKLINE_ITEMS)
+  var result = []
+  for (var index = 0; index < cap; index++) {
+    var number = finiteNumber(values[index])
+    if (number !== null) result.push(number)
+  }
+  return result
+}
+
+function boundedPrices(prices) {
+  if (!prices || typeof prices !== "object") return {}
+  var result = {}
+  for (var index = 0; index < FIAT_CURRENCIES.length; index++) {
+    var code = FIAT_CURRENCIES[index]
+    var number = finiteNumber(prices[code])
+    if (number !== null) result[code] = number
+  }
+  return result
+}
+
 function finiteNumber(value) {
   if (value === null || value === undefined || value === "") return null
   var number = Number(value)
@@ -110,12 +148,14 @@ function satsPerFiat(price) {
 }
 
 function shortHash(hash) {
-  var value = String(hash || "")
+  var value = boundedString(hash)
   return value.length > 16 ? value.slice(0, 6) + "…" + value.slice(-6) : (value || "—")
 }
 
 function parseJson(text) {
-  try { return JSON.parse(String(text || "")) } catch (error) { return null }
+  var raw = String(text || "")
+  if (raw.length === 0 || raw.length > MAX_RESPONSE_CHARS) return null
+  try { return JSON.parse(raw) } catch (error) { return null }
 }
 
 function firstDefined(object, keys) {
@@ -136,18 +176,18 @@ function parseBlock(text) {
   var totalFees = firstDefined(extras, ["totalFees", "total_fees"])
   var reward = firstDefined(extras, ["reward", "subsidy", "subsidy_fee", "total_reward", "totalReward"])
   return {
-    id: String(block.id || ""),
+    id: boundedString(block.id),
     height: Number(block.height),
     timestamp: finiteNumber(block.timestamp),
     txCount: finiteNumber(block.tx_count),
     size: finiteNumber(block.size),
     weight: finiteNumber(block.weight),
     difficulty: finiteNumber(block.difficulty),
-    feeRange: extras.feeRange || extras.fee_range || [],
+    feeRange: boundedNumbers(extras.feeRange || extras.fee_range || [], MAX_FEE_RANGE_ITEMS),
     medianFee: finiteNumber(firstDefined(extras, ["medianFee", "median_fee"])),
     totalFeesBtc: finiteNumber(totalFees) === null ? null : Number(totalFees) / 100000000,
     rewardBtc: finiteNumber(reward) === null ? null : Number(reward) / 100000000,
-    poolName: String(poolName || "")
+    poolName: boundedString(poolName)
   }
 }
 
@@ -185,7 +225,7 @@ function parseCoinGecko(text) {
   var market = value && value.market_data
   if (!market || !market.current_price || finiteNumber(market.current_price.usd) === null) return null
   return {
-    currentPrice: market.current_price,
+    currentPrice: boundedPrices(market.current_price),
     priceUsd: Number(market.current_price.usd),
     change24h: finiteNumber(market.price_change_percentage_24h),
     change7d: finiteNumber(market.price_change_percentage_7d),
@@ -193,11 +233,11 @@ function parseCoinGecko(text) {
     high24h: finiteNumber(market.high_24h && market.high_24h.usd),
     low24h: finiteNumber(market.low_24h && market.low_24h.usd),
     ath: finiteNumber(market.ath && market.ath.usd),
-    athDate: String((market.ath_date && market.ath_date.usd) || ""),
+    athDate: boundedString(market.ath_date && market.ath_date.usd),
     atl: finiteNumber(market.atl && market.atl.usd),
-    atlDate: String((market.atl_date && market.atl_date.usd) || ""),
-    lastUpdated: String(market.last_updated || ""),
-    sparkline: market.sparkline_7d && market.sparkline_7d.price instanceof Array ? market.sparkline_7d.price : []
+    atlDate: boundedString(market.atl_date && market.atl_date.usd),
+    lastUpdated: boundedString(market.last_updated),
+    sparkline: boundedNumbers(market.sparkline_7d && market.sparkline_7d.price, MAX_SPARKLINE_ITEMS)
   }
 }
 
@@ -208,8 +248,7 @@ function parseMempoolPrice(text) {
 }
 
 function feeSpan(values) {
-  if (!(values instanceof Array) || values.length === 0) return "—"
-  var valid = values.map(Number).filter(function(value) { return isFinite(value) })
+  var valid = boundedNumbers(values, MAX_FEE_RANGE_ITEMS)
   if (valid.length === 0) return "—"
   return formatFee(Math.min.apply(null, valid)) + " – " + formatFee(Math.max.apply(null, valid)) + " sat/vB"
 }
@@ -276,8 +315,7 @@ function shortDate(value) {
 function pad(value) { return value < 10 ? "0" + value : String(value) }
 
 function chartValues(values, count) {
-  if (!(values instanceof Array)) return []
-  var valid = values.map(Number).filter(function(value) { return isFinite(value) })
+  var valid = boundedNumbers(values, MAX_SPARKLINE_ITEMS)
   return valid.slice(-Math.max(2, count || 24))
 }
 

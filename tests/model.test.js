@@ -109,4 +109,54 @@ assert.equal(model.retryDelayMs(20), 300000)
 assert.equal(model.isStale(1000000, 10, 1000100), false)
 assert.equal(model.isStale(1000000, 10, 2000000), true)
 
+// Caps: the parsers are the second line of defence behind the byte cap in
+// scripts/fetch-json.sh, so they must refuse oversized or unbounded input.
+const overCap = "a".repeat(model.MAX_RESPONSE_CHARS + 1)
+assert.equal(model.parseJson(overCap), null, "oversized body rejected")
+assert.equal(model.parseBlock(overCap), null)
+assert.equal(model.parseCoinGecko(overCap), null)
+assert.equal(model.parseFees(overCap), null)
+
+const atCap = JSON.stringify({ fastestFee: 3 }).padEnd(model.MAX_RESPONSE_CHARS, " ")
+assert.equal(atCap.length, model.MAX_RESPONSE_CHARS)
+assert.equal(model.parseFees(atCap).fastestFee, 3, "body at cap still parses")
+
+const longString = "x".repeat(model.MAX_STRING_CHARS + 500)
+const hugeBlock = model.parseBlock(JSON.stringify([{
+  id: longString,
+  height: 900002,
+  extras: {
+    feeRange: new Array(5000).fill(4),
+    pool: { name: longString }
+  }
+}]))
+assert.equal(hugeBlock.id.length, model.MAX_STRING_CHARS, "block id capped")
+assert.equal(hugeBlock.poolName.length, model.MAX_STRING_CHARS, "pool name capped")
+assert.equal(hugeBlock.feeRange.length, model.MAX_FEE_RANGE_ITEMS, "fee range capped")
+assert.equal(model.feeSpan(new Array(5000).fill(4)), "4 – 4 sat/vB", "fee span bounded")
+
+const hugeMarket = model.parseCoinGecko(JSON.stringify({
+  market_data: {
+    current_price: { usd: 100000, eur: 90000, bogus: 1 },
+    ath_date: { usd: longString },
+    atl_date: { usd: longString },
+    last_updated: longString,
+    sparkline_7d: { price: new Array(20000).fill(1) }
+  }
+}))
+assert.equal(hugeMarket.sparkline.length, model.MAX_SPARKLINE_ITEMS, "sparkline capped")
+assert.equal(hugeMarket.athDate.length, model.MAX_STRING_CHARS, "ath date capped")
+assert.equal(hugeMarket.atlDate.length, model.MAX_STRING_CHARS, "atl date capped")
+assert.equal(hugeMarket.lastUpdated.length, model.MAX_STRING_CHARS, "last updated capped")
+assert.equal(hugeMarket.currentPrice.bogus, undefined, "unknown currency dropped")
+assert.equal(hugeMarket.currentPrice.eur, 90000, "known currency retained")
+assert.equal(model.chartValues(new Array(20000).fill(1), 24).length, 24, "chart values capped")
+
+// Bounded helpers reject non-array input rather than indexing a string.
+assert.deepEqual(Array.from(model.boundedNumbers("12345")), [])
+assert.deepEqual(Array.from(model.boundedNumbers(null)), [])
+assert.deepEqual(Array.from(model.boundedNumbers([1, "x", 3])), [1, 3])
+assert.equal(model.boundedString(null), "")
+assert.equal(model.boundedString(12), "12")
+
 console.log("Model.js: all tests passed")
