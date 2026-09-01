@@ -3,7 +3,7 @@
   "id": "nmorton.bitcoin",
   "name": "Bitcoin",
   "version": "1.0.1",
-  "author": "Nick Morton",
+  "author": "Nathan Morton",
   "description": "Bitcoin network, fee, difficulty, and market data with rich detail panes",
   "kinds": [
     "bar-widget"

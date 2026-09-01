@@ -127,4 +127,4 @@ Bug reports and focused pull requests are welcome. See [CONTRIBUTING.md](CONTRIB
 
 ## License
 
-[MIT](LICENSE) © 2026 Nick Morton
+[MIT](LICENSE) © 2026 Nathan Morton
